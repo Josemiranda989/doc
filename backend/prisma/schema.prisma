@@ -1,0 +1,123 @@
+// Modelo de datos de CuidAR (MVP) — fuente: docs/modelo-datos.md
+// Los campos van en snake_case, igual que en la base: así la API devuelve
+// exactamente la misma forma que devolvían los mocks de C9.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ── Enums ────────────────────────────────────────────────
+
+enum tipo_condicion {
+  diagnostico
+  alergia
+}
+
+enum forma_medicacion {
+  comprimido
+  gota
+  ml
+  aplicacion
+}
+
+enum estado_medicacion {
+  activa
+  discontinuada
+}
+
+// ── Entidades ────────────────────────────────────────────
+
+model cuidador {
+  id         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre     String
+  telefono   String?
+  created_at DateTime          @default(now()) @db.Timestamptz(6)
+  personas   persona_a_cargo[]
+}
+
+model persona_a_cargo {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cuidador_id      String       @db.Uuid
+  nombre_completo  String
+  fecha_nacimiento DateTime     @db.Date // la edad se calcula, no se guarda
+  dni              String?
+  parentesco       String?
+  obra_social      String?
+  numero_afiliado  String?
+  notas            String?
+  created_at       DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime     @default(now()) @updatedAt @db.Timestamptz(6)
+
+  cuidador     cuidador     @relation(fields: [cuidador_id], references: [id])
+  condiciones  condicion[]
+  medicos      medico[]
+  medicaciones medicacion[]
+
+  @@index([cuidador_id])
+}
+
+model condicion {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  persona_id  String         @db.Uuid
+  tipo        tipo_condicion
+  descripcion String
+
+  persona persona_a_cargo @relation(fields: [persona_id], references: [id], onDelete: Cascade)
+
+  @@index([persona_id])
+}
+
+model medico {
+  id           String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  persona_id   String  @db.Uuid
+  nombre       String
+  especialidad String?
+  matricula    String?
+
+  persona      persona_a_cargo @relation(fields: [persona_id], references: [id], onDelete: Cascade)
+  medicaciones medicacion[]
+
+  @@index([persona_id])
+}
+
+model medicacion {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  persona_id        String            @db.Uuid
+  medico_id         String?           @db.Uuid
+  droga             String
+  nombre_comercial  String?
+  concentracion     String // "10 mg", "500 mg / 400 UI"
+  cantidad_por_toma Decimal           @db.Decimal(5, 2)
+  forma             forma_medicacion
+  via               String?
+  motivo            String?
+  indicaciones      String?
+  es_sos            Boolean           @default(false)
+  estado            estado_medicacion @default(activa)
+  fecha_inicio      DateTime          @db.Date
+  fecha_fin         DateTime?         @db.Date
+  motivo_baja       String?
+
+  persona  persona_a_cargo @relation(fields: [persona_id], references: [id], onDelete: Cascade)
+  medico   medico?         @relation(fields: [medico_id], references: [id], onDelete: SetNull)
+  horarios horario_toma[]
+
+  @@index([persona_id])
+}
+
+model horario_toma {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  medicacion_id String   @db.Uuid
+  hora          DateTime @db.Time(6)
+  dias_semana   Int[]    @default([0, 1, 2, 3, 4, 5, 6]) @db.SmallInt // 0 = domingo
+
+  medicacion medicacion @relation(fields: [medicacion_id], references: [id], onDelete: Cascade)
+
+  @@index([medicacion_id])
+}

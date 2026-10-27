@@ -1,0 +1,29 @@
+
+# Dependencias
+node_modules/
+
+# Variables de entorno y secretos
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Cobertura y pruebas
+coverage/
+
+# Archivos del sistema y editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Archivos temporales
+tmp/
+temp/
+
+# Cliente generado por Prisma (se regenera con `prisma generate`)
+src/generated/
