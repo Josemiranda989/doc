@@ -26,4 +26,4 @@ tmp/
 temp/
 
 # Cliente generado por Prisma (se regenera con `prisma generate`)
-src/generated/
+**/src/generated/
