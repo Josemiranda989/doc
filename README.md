@@ -1,6 +1,6 @@
-# CuidAR · backend con Prisma
+# CuidAR · backend con Prisma + frontend React
 
-Proyecto paralelo a [`cuidar-ia-app`](https://github.com/Josemiranda989/cuidar-ia-app): el mismo backend de C9 (Node + Express 5, MVC, ES modules), con los mocks reemplazados por **PostgreSQL + Prisma 7**. Sirve para probar de punta a punta los pasos de deploy del trayecto (C12: Supabase + Render) antes de darlos en clase.
+Proyecto paralelo a [`cuidar-ia-app`](https://github.com/Josemiranda989/cuidar-ia-app), armado siguiendo las clases del trayecto: el mismo backend de C9 (Node + Express 5, MVC, ES modules), con los mocks reemplazados por **PostgreSQL + Prisma 7**. Sirve para probar de punta a punta los pasos de deploy del trayecto (C12: Supabase + Render) antes de darlos en clase.
 
 **El contrato de la API no cambió.** Mismas rutas, mismo `{ status, data }`, mismos campos en snake_case, mismos tipos. La colección de Postman de `backend/docs/` pasa 15/15 igual que contra los mocks; lo único que cambia son los IDs, que ahora son UUID.
 
@@ -150,3 +150,39 @@ Y la colección de Postman con `baseUrl` = `https://<tu-servicio>.onrender.com/a
 | `prepared statement "…" already exists` | Pasa con el transaction pooler. Probá `DATABASE_URL` con el session pooler (5432) |
 | `Cannot find module '../generated/prisma/client.ts'` | No corrió `prisma generate`. Revisá que el build sea `npm install && npm run build` |
 | `SyntaxError` al arrancar en Render | Node viejo. `engines` pide ≥ 20.19; si no lo toma, agregá `NODE_VERSION=22` en Environment |
+
+---
+
+## Frontend (`frontend/`) — C10, C11 y C13
+
+Vite + React + axios + React Router. Sigue las clases:
+
+| Clase | Qué agrega |
+|---|---|
+| C10 | scaffold con proxy de Vite, `medications.service.js` y `dependents.service.js`, lista + form con `<select>` de persona |
+| C11 | navegación, editar/eliminar con feedback, loading / error con Reintentar / empty en las dos entidades |
+| C13 (parte 1) | `VITE_API_URL` centralizada en `src/config.js` + `src/services/api.js`; `vercel.json` |
+
+### Correrlo en local
+
+Con el backend corriendo en el 3000:
+
+```bash
+cd frontend
+npm install
+npm run dev        # http://localhost:5173
+```
+
+Sin `.env`, las llamadas van a `/api` y las resuelve el proxy de Vite. Con `VITE_API_URL` en `.env`, van directo a esa URL (el backend tiene CORS abierto).
+
+### Deploy en Vercel
+
+| Campo | Valor |
+|---|---|
+| Framework Preset | Vite (lo detecta solo) |
+| Root Directory | `frontend` |
+| Environment Variables | `VITE_API_URL` = URL de Render, **sin** `/api` al final |
+
+`vercel.json` reescribe todas las rutas a `index.html`. Sin eso, entrar directo a `/personas` (o recargar ahí) da **404 en Vercel**: el router vive en el navegador y Vercel busca un archivo `/personas` que no existe.
+
+> `VITE_API_URL` se "hornea" en el build. Si la cambiás en Vercel, hay que **redeployar** para que tome el valor nuevo.
