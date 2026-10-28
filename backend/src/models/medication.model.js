@@ -41,35 +41,40 @@ function pickEditable(data) {
   return out;
 }
 
-async function getAll(personaId) {
+// Autorización: una medicación es del cuidador dueño de su persona a cargo.
+// Todas las consultas filtran por ese camino (medicacion → persona → cuidador_id).
+const delCuidador = (caregiverId) => ({ persona: { cuidador_id: caregiverId } });
+
+async function getAll(personaId, caregiverId) {
   // Con ?personaId= inválido no hay resultados (igual que con los mocks).
   if (personaId !== undefined && !isUuid(personaId)) return [];
   const rows = await prisma.medicacion.findMany({
-    where: personaId ? { persona_id: personaId } : {},
+    where: { ...delCuidador(caregiverId), ...(personaId ? { persona_id: personaId } : {}) },
     orderBy: { fecha_inicio: 'asc' }
   });
   return rows.map(serialize);
 }
 
-async function getById(id) {
+async function getById(id, caregiverId) {
   if (!isUuid(id)) return null;
-  const row = await prisma.medicacion.findUnique({ where: { id } });
+  const row = await prisma.medicacion.findFirst({ where: { id, ...delCuidador(caregiverId) } });
   return row ? serialize(row) : null;
 }
 
+// La persona ya fue validada como propia en el controller.
 async function create(data) {
   const row = await prisma.medicacion.create({ data: pickEditable(data) });
   return serialize(row);
 }
 
-async function update(id, data) {
-  if (!(await getById(id))) return null;
+async function update(id, data, caregiverId) {
+  if (!(await getById(id, caregiverId))) return null;
   const row = await prisma.medicacion.update({ where: { id }, data: pickEditable(data) });
   return serialize(row);
 }
 
-async function remove(id) {
-  const existing = await getById(id);
+async function remove(id, caregiverId) {
+  const existing = await getById(id, caregiverId);
   if (!existing) return null;
   await prisma.medicacion.delete({ where: { id } });
   return existing;

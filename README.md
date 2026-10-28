@@ -31,7 +31,7 @@ Bugs de los mocks que esta versión ya no tiene:
 | Otra persona | `22222222-2222-4222-8222-222222222222` |
 | Medicaciones de Elsa | `aaaaaaaa-0000-4000-8000-00000000000{1,2,3}` |
 
-El `cuidador_id` sigue fijo hasta C13, cuando lo reemplaza el uid de Supabase Auth. Se puede pisar con la variable `CAREGIVER_ID`.
+Sin auth (desarrollo), todas las requests usan ese cuidador. Con auth, cada usuario de Supabase es su propio cuidador (ver **Auth**).
 
 ---
 
@@ -161,7 +161,7 @@ Vite + React + axios + React Router. Sigue las clases:
 |---|---|
 | C10 | scaffold con proxy de Vite, `medications.service.js` y `dependents.service.js`, lista + form con `<select>` de persona |
 | C11 | navegación, editar/eliminar con feedback, loading / error con Reintentar / empty en las dos entidades |
-| C13 (parte 1) | `VITE_API_URL` centralizada en `src/config.js` + `src/services/api.js`; `vercel.json` |
+| C13 | `VITE_API_URL` centralizada en `src/config.js` + `src/services/api.js`; `vercel.json`; login y signup con Supabase Auth |
 
 ### Correrlo en local
 
@@ -186,3 +186,67 @@ Sin `.env`, las llamadas van a `/api` y las resuelve el proxy de Vite. Con `VITE
 `vercel.json` reescribe todas las rutas a `index.html`. Sin eso, entrar directo a `/personas` (o recargar ahí) da **404 en Vercel**: el router vive en el navegador y Vercel busca un archivo `/personas` que no existe.
 
 > `VITE_API_URL` se "hornea" en el build. Si la cambiás en Vercel, hay que **redeployar** para que tome el valor nuevo.
+
+---
+
+## Auth — Supabase Auth + autorización en el backend (C13)
+
+**Quién sos** lo resuelve Supabase Auth (signup, login, sesión). **A qué datos tenés derecho** lo resuelve el backend.
+
+```
+Front (Vercel)                       Backend (Render)                        Postgres (Supabase)
+supabase.auth.signInWithPassword ──► Authorization: Bearer <access_token>
+                                     requireAuth: verifica firma, emisor,
+                                     audiencia y vencimiento (jose + JWKS)
+                                     req.user.id = uid del token
+                                     models filtran por cuidador_id = req.user.id ──► solo filas propias
+```
+
+- El front **no manda ningún `cuidador_id`**: el backend lo saca del token verificado. Si llega uno en el body o en un header, se ignora.
+- Las medicaciones no tienen dueño propio: se autorizan por su persona (`medicacion → persona_a_cargo → cuidador_id`).
+- Otro usuario que pide un id ajeno recibe **404**, no 403: no se le confirma que el recurso existe.
+- Cada usuario nuevo tiene su fila en `cuidador` (la crea el middleware la primera vez).
+
+> **Por qué no RLS:** Prisma se conecta como dueño de la base y se saltea las políticas de Row Level Security. Con este stack, la autorización vive en el backend. RLS sería una segunda capa si alguien le pegara a la base con la publishable key desde el navegador, cosa que esta app no hace.
+
+### Sin Supabase (desarrollo)
+
+Si el backend no tiene `SUPABASE_URL` y el front no tiene `VITE_SUPABASE_URL`, la app anda **sin login**: todas las requests son del cuidador del seed. Así siguen funcionando las clases C9–C12 y la colección de Postman. En producción (`NODE_ENV=production`) el backend **no arranca** sin `SUPABASE_URL`.
+
+### Configurarlo
+
+1. **Supabase → Authentication → Sign In / Providers:** Email habilitado. Para probar rápido podés desactivar *Confirm email*. Si lo dejás activo, el signup avisa "te mandamos un mail".
+2. **Supabase → Authentication → URL Configuration:** *Site URL* = la URL de Vercel (a dónde vuelve el link del mail de confirmación).
+3. **Render → Environment:** `SUPABASE_URL=https://<proyecto>.supabase.co` y `NODE_ENV=production`.
+4. **Vercel → Environment Variables:** `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` (Settings → API Keys). Redeployar.
+
+### Ver los datos de prueba con tu usuario
+
+El seed crea a Elsa para el cuidador de desarrollo. Para verla logueado, corré el seed con tu uid (Supabase → Authentication → Users):
+
+```bash
+SEED_CUIDADOR_ID=<tu-uid> npm run db:seed
+```
+
+### Postman con auth
+
+La colección usa `Authorization: Bearer {{token}}`. Para obtener un token:
+
+```bash
+curl -s -X POST "https://<proyecto>.supabase.co/auth/v1/token?grant_type=password" \
+  -H "apikey: <publishable key>" -H "Content-Type: application/json" \
+  -d '{"email":"tu@mail.com","password":"tu-password"}'
+# → copiá access_token en la variable "token" de la colección (dura 1 h)
+```
+
+### Cómo se probó
+
+Contra un Supabase Auth simulado (tokens ES256 con JWKS, igual que un proyecto nuevo de Supabase):
+
+| Prueba | Resultado |
+|---|---|
+| Sin token / token inventado / JWT sin firma (`alg: none`) | 401 |
+| Usuario B pide, edita o borra una persona o medicación de A | 404 |
+| B crea una medicación sobre la persona de A | 400 |
+| B manda `cuidador_id` de A en el body | se ignora: la persona queda a nombre de B |
+| Signup → login → recargar → salir → otro usuario no ve lo del primero | ✓ (Playwright) |

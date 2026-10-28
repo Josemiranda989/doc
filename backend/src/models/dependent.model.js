@@ -1,9 +1,8 @@
 import { prisma } from '../lib/prisma.js';
 import { fromDateOnly, isUuid, toDateOnly, toIso } from '../lib/serialize.js';
 
-// cuidador_id fijo hasta C13: ahí lo reemplaza el uid de Supabase Auth.
-// Es el mismo UUID que crea el seed.
-export const CAREGIVER_ID = process.env.CAREGIVER_ID ?? '00000000-0000-4000-8000-000000000001';
+// Autorización: todas las funciones reciben el caregiverId del usuario logueado
+// (req.user.id, que sale del token verificado) y solo ven sus propias personas.
 
 const editableFields = [
   'nombre_completo',
@@ -50,31 +49,31 @@ function pickEditable(data) {
   return out;
 }
 
-async function getAll() {
+async function getAll(caregiverId) {
   const rows = await prisma.persona_a_cargo.findMany({
-    where: { cuidador_id: CAREGIVER_ID },
+    where: { cuidador_id: caregiverId },
     orderBy: { created_at: 'asc' }
   });
   return rows.map(serialize);
 }
 
-async function getById(id) {
+async function getById(id, caregiverId) {
   if (!isUuid(id)) return null;
   const row = await prisma.persona_a_cargo.findFirst({
-    where: { id, cuidador_id: CAREGIVER_ID }
+    where: { id, cuidador_id: caregiverId }
   });
   return row ? serialize(row) : null;
 }
 
-async function create(data) {
+async function create(data, caregiverId) {
   const row = await prisma.persona_a_cargo.create({
-    data: { ...pickEditable(data), cuidador_id: CAREGIVER_ID }
+    data: { ...pickEditable(data), cuidador_id: caregiverId }
   });
   return serialize(row);
 }
 
-async function update(id, data) {
-  if (!(await getById(id))) return null;
+async function update(id, data, caregiverId) {
+  if (!(await getById(id, caregiverId))) return null;
   const row = await prisma.persona_a_cargo.update({
     where: { id },
     data: pickEditable(data)
@@ -82,8 +81,8 @@ async function update(id, data) {
   return serialize(row);
 }
 
-async function remove(id) {
-  const existing = await getById(id);
+async function remove(id, caregiverId) {
+  const existing = await getById(id, caregiverId);
   if (!existing) return null;
   // ON DELETE CASCADE: Postgres borra sus medicaciones, condiciones y médicos.
   await prisma.persona_a_cargo.delete({ where: { id } });

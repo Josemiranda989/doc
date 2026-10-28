@@ -2,17 +2,13 @@
   "info": {
     "_postman_id": "b9ac5607-2e95-4f75-b743-93d4936daa82",
     "name": "CuidAR API",
-    "description": "Colección para probar health y los endpoints CRUD de personas a cargo y medicaciones. Iniciar el backend en http://localhost:3000 y ejecutar las requests en orden para probar los flujos completos. Los IDs de las variables son los UUIDs que crea `npm run db:seed`.",
+    "description": "Colección para probar health y los endpoints CRUD de personas a cargo y medicaciones. Iniciar el backend en http://localhost:3000 y ejecutar las requests en orden para probar los flujos completos. Los IDs de las variables son los UUIDs que crea `npm run db:seed`. Con auth activa (SUPABASE_URL configurada), pegar en la variable `token` el access_token de un usuario (ver README). Sin SUPABASE_URL, en desarrollo, el token se ignora.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     {
       "key": "baseUrl",
       "value": "http://localhost:3000/api"
-    },
-    {
-      "key": "caregiverId",
-      "value": "00000000-0000-4000-8000-000000000001"
     },
     {
       "key": "dependentId",
@@ -28,6 +24,10 @@
     },
     {
       "key": "createdMedicationId",
+      "value": ""
+    },
+    {
+      "key": "token",
       "value": ""
     }
   ],
@@ -138,10 +138,10 @@
                   "pm.test('Crea persona y guarda su ID', function () {",
                   "  pm.response.to.have.status(201);",
                   "  const body = pm.response.json();",
-                  "  pm.expect(body.status).to.eql('success');",
-                  "  pm.expect(body.data.cuidador_id).to.eql(pm.collectionVariables.get('caregiverId'));",
-                  "  pm.expect(body.data).not.to.have.property('error');",
                   "  pm.collectionVariables.set('createdDependentId', body.data.id);",
+                  "  pm.expect(body.status).to.eql('success');",
+                  "  // El dueño lo pone el backend (usuario logueado o cuidador de dev), nunca el body.\n  pm.expect(body.data.cuidador_id).to.match(/^[0-9a-f-]{36}$/);",
+                  "  pm.expect(body.data).not.to.have.property('error');",
                   "});"
                 ]
               }
@@ -482,5 +482,15 @@
         }
       ]
     }
-  ]
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  }
 }

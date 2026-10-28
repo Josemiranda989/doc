@@ -63,17 +63,18 @@ function validateEnums(body) {
   return null;
 }
 
-async function validatePerson(personaId) {
-  return typeof personaId === 'string' && (await dependentModel.getById(personaId));
+// La persona tiene que existir Y ser del usuario logueado.
+async function validatePerson(personaId, caregiverId) {
+  return typeof personaId === 'string' && (await dependentModel.getById(personaId, caregiverId));
 }
 
 async function getAll(req, res) {
-  const medications = await medicationModel.getAll(req.query.personaId);
+  const medications = await medicationModel.getAll(req.query.personaId, req.user.id);
   return res.status(200).json({ status: 'success', data: medications });
 }
 
 async function getById(req, res) {
-  const medication = await medicationModel.getById(req.params.id);
+  const medication = await medicationModel.getById(req.params.id, req.user.id);
   if (!medication) return sendNotFound(res);
 
   return res.status(200).json({ status: 'success', data: medication });
@@ -95,7 +96,7 @@ async function create(req, res) {
   if (valueError) {
     return res.status(400).json({ status: 'error', data: { message: valueError } });
   }
-  if (!(await validatePerson(body.persona_id))) {
+  if (!(await validatePerson(body.persona_id, req.user.id))) {
     return res.status(400).json({
       status: 'error',
       data: { message: 'persona_id debe corresponder a una persona a cargo existente' }
@@ -119,21 +120,21 @@ async function update(req, res) {
   if (valueError) {
     return res.status(400).json({ status: 'error', data: { message: valueError } });
   }
-  if (Object.hasOwn(body, 'persona_id') && !(await validatePerson(body.persona_id))) {
+  if (Object.hasOwn(body, 'persona_id') && !(await validatePerson(body.persona_id, req.user.id))) {
     return res.status(400).json({
       status: 'error',
       data: { message: 'persona_id debe corresponder a una persona a cargo existente' }
     });
   }
 
-  const medication = await medicationModel.update(req.params.id, body);
+  const medication = await medicationModel.update(req.params.id, body, req.user.id);
   if (!medication) return sendNotFound(res);
 
   return res.status(200).json({ status: 'success', data: medication });
 }
 
 async function remove(req, res) {
-  const medication = await medicationModel.remove(req.params.id);
+  const medication = await medicationModel.remove(req.params.id, req.user.id);
   if (!medication) return sendNotFound(res);
 
   return res.status(200).json({ status: 'success', data: medication });

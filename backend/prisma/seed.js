@@ -3,7 +3,10 @@
 import 'dotenv/config';
 import { prisma } from '../src/lib/prisma.js';
 
-const CUIDADOR_ID = '00000000-0000-4000-8000-000000000001';
+// Por defecto, el cuidador de desarrollo (el que usa la API sin auth).
+// Para ver los datos de prueba logueado con tu usuario de Supabase:
+//   SEED_CUIDADOR_ID=<tu uid> npm run db:seed
+const CUIDADOR_ID = process.env.SEED_CUIDADOR_ID ?? '00000000-0000-4000-8000-000000000001';
 const ELSA_ID = '11111111-1111-4111-8111-111111111111';
 const OTRO_ID = '22222222-2222-4222-8222-222222222222';
 
