@@ -1,24 +1,31 @@
-import { useState } from 'react';
-import MedicacionList from './components/MedicacionList.jsx';
-import MedicacionForm from './components/MedicacionForm.jsx';
-import DependentList from './components/DependentList.jsx';
+import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
+import MedicacionesPage from './pages/MedicacionesPage.jsx';
+import PersonasPage from './pages/PersonasPage.jsx';
 
-// C10: todo apilado en una sola pantalla. La navegación llega en C11.
+const link = ({ isActive }) => ({
+  padding: '8px 12px',
+  textDecoration: 'none',
+  color: isActive ? '#fff' : '#1a1a1a',
+  background: isActive ? '#1a1a1a' : 'transparent',
+});
+
 export default function App() {
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-
   return (
     <main style={{ maxWidth: 720, margin: '0 auto', padding: 24, fontFamily: 'system-ui, sans-serif' }}>
-      <h1>CuidAR</h1>
+      <header style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+        <h1 style={{ margin: 0, marginRight: 'auto' }}>CuidAR</h1>
+        <nav style={{ display: 'flex', gap: 4 }}>
+          <NavLink to="/medicaciones" style={link}>Medicaciones</NavLink>
+          <NavLink to="/personas" style={link}>Personas a cargo</NavLink>
+        </nav>
+      </header>
 
-      <h2>Nueva medicación</h2>
-      <MedicacionForm onCreated={() => setRefreshTrigger((n) => n + 1)} />
-
-      <h2>Medicaciones</h2>
-      <MedicacionList refreshTrigger={refreshTrigger} />
-
-      <h2>Personas a cargo</h2>
-      <DependentList />
+      <Routes>
+        <Route path="/" element={<Navigate to="/medicaciones" replace />} />
+        <Route path="/medicaciones" element={<MedicacionesPage />} />
+        <Route path="/personas" element={<PersonasPage />} />
+        <Route path="*" element={<p>Esta página no existe.</p>} />
+      </Routes>
     </main>
   );
 }
